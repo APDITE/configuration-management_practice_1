@@ -1,0 +1,22 @@
+{
+  "type": "dir",
+  "children": {
+    "readme.txt": {
+      "type": "file",
+      "content": "Это VFS с несколькими файлами.\n"
+    },
+    "notes.md": {
+      "type": "file",
+      "content": "# Заметки\n- купить молоко\n"
+    },
+    "logo.png": {
+      "type": "file",
+      "encoding": "base64",
+      "content": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgAAACAAFUok9dAAAAAElFTkSuQmCC"
+    },
+    "empty.txt": {
+      "type": "file",
+      "content": ""
+    }
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "type": "dir",
+  "children": {
+    "bin": {
+      "type": "dir",
+      "children": {
+        "ls": {
+          "type": "file",
+          "encoding": "base64",
+          "content": "f0VMRgIBAQBmYWtlLWJpbmFyeQ=="
+        },
+        "cp": {
+          "type": "file",
+          "encoding": "base64",
+          "content": "f0VMRgIBAQBhbm90aGVy"
+        }
+      }
+    },
+    "etc": {
+      "type": "dir",
+      "children": {
+        "hosts": {
+          "type": "file",
+          "content": "127.0.0.1 localhost\n"
+        },
+        "passwd": {
+          "type": "file",
+          "content": "root:x:0:0:root:/root:/bin/sh\nuser:x:1000:1000::/home/user:/bin/sh\n"
+        }
+      }
+    },
+    "home": {
+      "type": "dir",
+      "children": {
+        "user": {
+          "type": "dir",
+          "children": {
+            "docs": {
+              "type": "dir",
+              "children": {
+                "report.txt": {
+                  "type": "file",
+                  "content": "Отчёт по практической работе № 1\n"
+                },
+                "photo.png": {
+                  "type": "file",
+                  "encoding": "base64",
+                  "content": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgAAACAAFUok9dAAAAAElFTkSuQmCC"
+                }
+              }
+            },
+            "projects": {
+              "type": "dir",
+              "children": {
+                "emulator": {
+                  "type": "dir",
+                  "children": {
+                    "src": {
+                      "type": "dir",
+                      "children": {
+                        "main.py": {
+                          "type": "file",
+                          "content": "print('hello')\n"
+                        }
+                      }
+                    },
+                    "README.md": {
+                      "type": "file",
+                      "content": "# emulator\n"
+                    }
+                  }
+                }
+              }
+            },
+            ".bashrc": {
+              "type": "file",
+              "content": "alias ll='ls -l'\n"
+            }
+          }
+        }
+      }
+    },
+    "tmp": {
+      "type": "dir",
+      "children": {}
+    },
+    "var": {
+      "type": "dir",
+      "children": {
+        "log": {
+          "type": "dir",
+          "children": {
+            "syslog": {
+              "type": "file",
+              "content": "Oct 11 12:00:00 host kernel: boot\n"
+            }
+          }
+        }
+      }
+    }
+  }
+}
