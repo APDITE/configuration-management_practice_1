@@ -5,7 +5,8 @@ import socket
 import sys
 
 from config import Config
-from vfs import ROOT_PATH, VfsError, VirtualFS, count_nodes, render_tree
+from vfs import ROOT_PATH, VfsError, VirtualFS, count_nodes, disk_usage
+from vfs import render_tree
 
 EXIT_OK = 0
 EXIT_ERROR = 1
@@ -93,6 +94,7 @@ class Shell:
         self.commands = {
             "ls": self.cmd_ls,
             "cd": self.cmd_cd,
+            "du": self.cmd_du,
             "exit": self.cmd_exit,
             "conf-dump": self.cmd_conf_dump,
             "vfs-info": self.cmd_vfs_info,
@@ -231,6 +233,31 @@ class Shell:
             return EXIT_ERROR
         self.cwd = path
         return EXIT_OK
+
+    def cmd_du(self, args):
+        """Вывести размеры в байтах: du [-a] [-s] [путь...].
+
+        По умолчанию выводятся все вложенные каталоги, -a добавляет
+        файлы, -s оставляет только итог для каждого пути.
+        """
+        options, paths = split_options(args)
+        if not self.check_options("du", options, "as"):
+            return EXIT_USAGE
+        status = EXIT_OK
+        for path in paths or [CURRENT_DIR]:
+            try:
+                _, node = self.vfs.lookup(path, self.cwd)
+            except VfsError as exc:
+                self.error(f"du: cannot access {exc}")
+                status = EXIT_ERROR
+                continue
+            if "s" in options:
+                usage = [(node.size(), path)]
+            else:
+                usage = disk_usage(node, path, "a" in options)
+            for size, name in usage:
+                self.print(f"{size}\t{name}")
+        return status
 
     def cmd_exit(self, args):
         """Завершить работу эмулятора."""
