@@ -1,4 +1,4 @@
-"""Ядро эмулятора: приглашение к вводу, парсер и команды."""
+"""Ядро эмулятора: приглашение к вводу, парсер, команды и скрипты."""
 
 import getpass
 import os
@@ -10,6 +10,7 @@ from config import Config
 EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_NOT_FOUND = 127
+COMMENT = "#"
 
 
 class ShellExit(Exception):
@@ -30,9 +31,10 @@ def make_prompt():
 def parse(line):
     """Разделить строку ввода на команду и аргументы по пробелам.
 
+    Всё после символа # считается комментарием (как в Python).
     Для пустой строки возвращает (None, []).
     """
-    parts = line.split()
+    parts = line.split(COMMENT, 1)[0].split()
     if not parts:
         return None, []
     return parts[0], parts[1:]
@@ -99,6 +101,32 @@ class Shell:
         """Отладочный вывод всех параметров эмулятора при запуске."""
         for key, value in self.config.items():
             self.error(f"[debug] {key} = {value or '(not set)'}")
+
+    def run_script(self, path):
+        """Выполнить стартовый скрипт, имитируя диалог с пользователем.
+
+        Пустые строки и строки-комментарии пропускаются. Об ошибке
+        сообщается с номером строки, выполнение продолжается.
+        Возвращает False, если скрипт не удалось прочитать.
+        При вызове exit бросает ShellExit.
+        """
+        try:
+            with open(path, encoding="utf-8") as file:
+                lines = file.read().splitlines()
+        except (OSError, UnicodeDecodeError) as exc:
+            reason = getattr(exc, "strerror", None) or exc
+            self.error(f"script: cannot read '{path}': {reason}")
+            return False
+        for number, line in enumerate(lines, start=1):
+            if parse(line)[0] is None:
+                continue
+            self.print(self.prompt() + line)
+            status = self.execute(line)
+            if status != EXIT_OK:
+                self.error(
+                    f"script error: {path}:{number}: exit status {status}"
+                )
+        return True
 
     def stub(self, name, args):
         """Заглушка: вывести имя команды и её аргументы."""

@@ -38,6 +38,11 @@ class ParseTest(unittest.TestCase):
         """Пустая строка даёт пустую команду."""
         self.assertEqual(parse("   "), (None, []))
 
+    def test_comment(self):
+        """Всё после # отбрасывается."""
+        self.assertEqual(parse("ls a # b c"), ("ls", ["a"]))
+        self.assertEqual(parse("# only comment"), (None, []))
+
 
 class CommandTest(unittest.TestCase):
     """Проверки команд-заглушек и exit."""
