@@ -1,11 +1,11 @@
 """Ядро эмулятора: приглашение к вводу, парсер, команды и скрипты."""
 
 import getpass
-import os
 import socket
 import sys
 
 from config import Config
+from vfs import ROOT_PATH, VirtualFS
 
 EXIT_OK = 0
 EXIT_ERROR = 1
@@ -17,14 +17,13 @@ class ShellExit(Exception):
     """Сигнал о завершении работы эмулятора командой exit."""
 
 
-def make_prompt():
-    """Сформировать приглашение вида username@hostname:~$ по данным ОС."""
+def make_prompt(cwd):
+    """Сформировать приглашение вида username@hostname:cwd$.
+
+    Имя пользователя и хоста берутся из ОС, cwd — текущий каталог VFS.
+    """
     user = getpass.getuser()
     host = socket.gethostname().split(".")[0]
-    cwd = os.getcwd()
-    home = os.path.expanduser("~")
-    if cwd == home or cwd.startswith(home + os.sep):
-        cwd = "~" + cwd[len(home):]
     return f"{user}@{host}:{cwd}$ "
 
 
@@ -43,12 +42,15 @@ def parse(line):
 class Shell:
     """Эмулятор командной оболочки UNIX-подобной ОС."""
 
-    def __init__(self, config=None, out=None, err=None):
-        """Создать оболочку с настройками config.
+    def __init__(self, config=None, out=None, err=None, vfs=None):
+        """Создать оболочку с настройками config и файловой системой vfs.
 
         Результаты выводятся в поток out, ошибки — в поток err.
+        Без vfs используется пустая VFS в памяти.
         """
         self.config = config or Config()
+        self.vfs = vfs or VirtualFS()
+        self.cwd = ROOT_PATH
         self.out = out or sys.stdout
         self.err = err or sys.stderr
         self.commands = {
@@ -59,8 +61,8 @@ class Shell:
         }
 
     def prompt(self):
-        """Вернуть приглашение к вводу."""
-        return make_prompt()
+        """Вернуть приглашение к вводу с текущим каталогом VFS."""
+        return make_prompt(self.cwd)
 
     def print(self, text=""):
         """Вывести строку в поток вывода оболочки."""

@@ -17,10 +17,10 @@ class PromptTest(unittest.TestCase):
     """Проверки приглашения к вводу."""
 
     def test_prompt_format(self):
-        """Приглашение имеет вид username@hostname:каталог$."""
-        prompt = make_prompt()
+        """Приглашение имеет вид username@hostname:каталог_VFS$."""
+        prompt = make_prompt("/home")
         self.assertTrue(prompt.startswith(getpass.getuser() + "@"))
-        self.assertTrue(prompt.endswith("$ "))
+        self.assertTrue(prompt.endswith(":/home$ "))
 
 
 class ParseTest(unittest.TestCase):
