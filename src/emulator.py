@@ -1,11 +1,11 @@
 """Точка входа эмулятора командной оболочки UNIX-подобной ОС."""
 
-from shell import repl
+from shell import Shell
 
 
 def main():
     """Запустить эмулятор в интерактивном режиме."""
-    repl()
+    Shell().repl()
 
 
 if __name__ == "__main__":

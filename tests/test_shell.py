@@ -1,19 +1,16 @@
-"""Тесты этапа 1: приглашение, парсер, заглушки и exit."""
+"""Тесты REPL: приглашение, парсер, заглушки и команда exit."""
 
-import contextlib
 import getpass
 import io
 import unittest
 
-from shell import make_prompt, parse, run_command
+from shell import EXIT_ERROR, EXIT_NOT_FOUND, Shell, ShellExit
+from shell import make_prompt, parse
 
 
-def run_and_capture(name, args):
-    """Выполнить команду и вернуть (результат, выведенный текст)."""
-    out = io.StringIO()
-    with contextlib.redirect_stdout(out):
-        result = run_command(name, args)
-    return result, out.getvalue()
+def make_shell():
+    """Создать оболочку с перехваченными потоками вывода."""
+    return Shell(out=io.StringIO(), err=io.StringIO())
 
 
 class PromptTest(unittest.TestCase):
@@ -41,26 +38,28 @@ class ParseTest(unittest.TestCase):
 class CommandTest(unittest.TestCase):
     """Проверки команд-заглушек и exit."""
 
-    def test_stubs(self):
-        """ls и cd выводят своё имя и аргументы."""
-        self.assertEqual(run_and_capture("ls", ["-a", "dir"]),
-                         (True, "ls: args = ['-a', 'dir']\n"))
-        self.assertEqual(run_and_capture("cd", []),
-                         (True, "cd: args = []\n"))
+    def test_stub_prints_args(self):
+        """Заглушка выводит имя команды и аргументы."""
+        shell = make_shell()
+        shell.execute("ls -a dir")
+        self.assertEqual(shell.out.getvalue(), "ls: args = ['-a', 'dir']\n")
 
     def test_unknown_command(self):
         """Неизвестная команда сообщает об ошибке."""
-        self.assertEqual(run_and_capture("foo", []),
-                         (True, "foo: command not found\n"))
+        shell = make_shell()
+        self.assertEqual(shell.execute("foo"), EXIT_NOT_FOUND)
+        self.assertIn("foo: command not found", shell.err.getvalue())
 
     def test_exit(self):
         """exit завершает работу."""
-        self.assertEqual(run_and_capture("exit", []), (False, ""))
+        with self.assertRaises(ShellExit):
+            make_shell().execute("exit")
 
     def test_exit_with_args(self):
         """exit с аргументами сообщает об ошибке и не завершает работу."""
-        self.assertEqual(run_and_capture("exit", ["1"]),
-                         (True, "exit: too many arguments\n"))
+        shell = make_shell()
+        self.assertEqual(shell.execute("exit 1"), EXIT_ERROR)
+        self.assertIn("exit: too many arguments", shell.err.getvalue())
 
 
 if __name__ == "__main__":

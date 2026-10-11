@@ -3,6 +3,15 @@
 import getpass
 import os
 import socket
+import sys
+
+EXIT_OK = 0
+EXIT_ERROR = 1
+EXIT_NOT_FOUND = 127
+
+
+class ShellExit(Exception):
+    """Сигнал о завершении работы эмулятора командой exit."""
 
 
 def make_prompt():
@@ -27,28 +36,74 @@ def parse(line):
     return parts[0], parts[1:]
 
 
-def run_command(name, args):
-    """Выполнить команду. Вернуть False, если нужно завершить работу."""
-    if name in ("ls", "cd"):
-        print(f"{name}: args = {args}")
-        return True
-    if name == "exit":
-        if args:
-            print("exit: too many arguments")
-            return True
-        return False
-    print(f"{name}: command not found")
-    return True
+class Shell:
+    """Эмулятор командной оболочки UNIX-подобной ОС."""
 
+    def __init__(self, out=None, err=None):
+        """Создать оболочку, выводящую результаты в out и ошибки в err."""
+        self.out = out or sys.stdout
+        self.err = err or sys.stderr
+        self.commands = {
+            "ls": self.cmd_ls,
+            "cd": self.cmd_cd,
+            "exit": self.cmd_exit,
+        }
 
-def repl():
-    """Запустить интерактивный цикл: приглашение, ввод, выполнение."""
-    while True:
-        try:
-            line = input(make_prompt())
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return
+    def prompt(self):
+        """Вернуть приглашение к вводу."""
+        return make_prompt()
+
+    def print(self, text=""):
+        """Вывести строку в поток вывода оболочки."""
+        print(text, file=self.out, flush=True)
+
+    def error(self, text):
+        """Вывести сообщение об ошибке в поток ошибок оболочки."""
+        print(text, file=self.err, flush=True)
+
+    def execute(self, line):
+        """Выполнить одну строку ввода и вернуть код возврата.
+
+        При вызове exit бросает ShellExit.
+        """
         name, args = parse(line)
-        if name is not None and not run_command(name, args):
-            return
+        if name is None:
+            return EXIT_OK
+        handler = self.commands.get(name)
+        if handler is None:
+            self.error(f"{name}: command not found")
+            return EXIT_NOT_FOUND
+        return handler(args)
+
+    def repl(self):
+        """Запустить интерактивный цикл: приглашение, ввод, выполнение."""
+        while True:
+            try:
+                line = input(self.prompt())
+            except (EOFError, KeyboardInterrupt):
+                self.print()
+                return
+            try:
+                self.execute(line)
+            except ShellExit:
+                return
+
+    def stub(self, name, args):
+        """Заглушка: вывести имя команды и её аргументы."""
+        self.print(f"{name}: args = {args}")
+        return EXIT_OK
+
+    def cmd_ls(self, args):
+        """Команда ls (заглушка)."""
+        return self.stub("ls", args)
+
+    def cmd_cd(self, args):
+        """Команда cd (заглушка)."""
+        return self.stub("cd", args)
+
+    def cmd_exit(self, args):
+        """Завершить работу эмулятора."""
+        if args:
+            self.error("exit: too many arguments")
+            return EXIT_ERROR
+        raise ShellExit()
