@@ -1,0 +1,5 @@
+# Проверка загруженной VFS: статистика и полное дерево.
+conf-dump
+vfs-info
+vfs-tree /
+exit
