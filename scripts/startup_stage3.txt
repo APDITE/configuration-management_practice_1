@@ -1,0 +1,29 @@
+# Стартовый скрипт для проверки всех команд этапов 1-3.
+# Запуск: ./run.sh --vfs vfs/deep.json --script scripts/startup_stage3.txt
+
+# --- служебные команды ---
+conf-dump
+vfs-info
+
+# --- дерево VFS: абсолютные и относительные пути, . и .. ---
+vfs-tree
+vfs-tree /home/user
+vfs-tree home/user/projects
+vfs-tree /home/user/../../etc
+vfs-tree ./var/log/
+vfs-tree /etc/hosts            # для файла выводится только путь
+
+# --- заглушки ls и cd ---
+ls -l /home
+cd /home/user
+
+# --- обработка ошибок ---
+vfs-tree /no/such/dir          # путь не существует
+vfs-tree /etc/hosts/inner      # файл вместо каталога
+vfs-tree /etc /var             # лишний аргумент
+vfs-info extra                 # лишний аргумент
+conf-dump extra                # лишний аргумент
+unknown-command                # неизвестная команда
+exit 1                         # лишний аргумент exit
+
+exit
