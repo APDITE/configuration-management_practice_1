@@ -1,14 +1,17 @@
-"""Тесты основных команд: cd, ls, du, date."""
+"""Тесты основных команд: cd, ls, du и date."""
 
 import io
 import os
 import unittest
+from datetime import datetime, timedelta, timezone
 
 from shell import EXIT_ERROR, EXIT_OK, EXIT_USAGE, Shell
 from vfs import load_vfs
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 DEEP_VFS = os.path.join(ROOT, "vfs", "deep.json")
+MSK = timezone(timedelta(hours=3), "MSK")
+FIXED_NOW = datetime(2026, 10, 11, 17, 5, 9, tzinfo=MSK)
 
 
 def make_shell():
@@ -138,6 +141,36 @@ class DuTest(unittest.TestCase):
         self.assertEqual(status, EXIT_ERROR)
         self.assertIn("du: cannot access /nope", err)
         self.assertEqual(run(shell, "du -x")[0], EXIT_USAGE)
+
+
+class DateTest(unittest.TestCase):
+    """Проверки команды date с подменёнными часами."""
+
+    def setUp(self):
+        """Создать оболочку с фиксированным текущим временем."""
+        self.shell = make_shell()
+        self.shell.clock = lambda: FIXED_NOW
+
+    def test_default_format(self):
+        """Без аргументов дата выводится как в UNIX."""
+        self.assertEqual(run(self.shell, "date"),
+                         (EXIT_OK, "Sun Oct 11 17:05:09 MSK 2026\n", ""))
+
+    def test_custom_format(self):
+        """+ФОРМАТ задаёт формат вывода."""
+        self.assertEqual(run(self.shell, "date +%Y-%m-%d")[1],
+                         "2026-10-11\n")
+
+    def test_real_clock(self):
+        """По умолчанию используется время ОС."""
+        _, out, _ = run(make_shell(), "date +%Y")
+        self.assertEqual(out.strip(), str(datetime.now().year))
+
+    def test_errors(self):
+        """Ошибки: аргумент без + и лишний аргумент."""
+        self.assertEqual(run(self.shell, "date tomorrow")[2],
+                         "date: invalid date 'tomorrow'\n")
+        self.assertEqual(run(self.shell, "date +%Y +%m")[0], EXIT_ERROR)
 
 
 if __name__ == "__main__":
