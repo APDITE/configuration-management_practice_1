@@ -1,0 +1,7 @@
+# Стартовый скрипт с ошибками: о каждой сообщается с номером строки,
+# выполнение продолжается.
+ls first
+unknown-command arg
+exit 1
+conf-dump extra
+ls last
