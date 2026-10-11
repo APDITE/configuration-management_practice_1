@@ -1,5 +1,6 @@
-"""Тесты загрузки виртуальной файловой системы."""
+"""Тесты виртуальной файловой системы и её подключения к оболочке."""
 
+import io
 import json
 import os
 import sys
@@ -9,6 +10,9 @@ import unittest
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
+from config import Config  # noqa: E402
+from emulator import run  # noqa: E402
+from shell import EXIT_ERROR, Shell  # noqa: E402
 from vfs import VfsError, load_vfs, normalize  # noqa: E402
 
 DEEP_VFS = os.path.join(ROOT, "vfs", "deep.json")
@@ -26,6 +30,12 @@ def write_json(test, text):
         file.write(text)
     test.addCleanup(os.remove, file.name)
     return file.name
+
+
+def make_shell(vfs_path=DEEP_VFS):
+    """Создать оболочку с загруженной VFS и перехваченным выводом."""
+    return Shell(out=io.StringIO(), err=io.StringIO(),
+                 vfs=load_vfs(vfs_path))
 
 
 class NormalizeTest(unittest.TestCase):
@@ -88,6 +98,21 @@ class LoadVfsTest(unittest.TestCase):
         for path in cases:
             with self.subTest(path=path), self.assertRaises(VfsError):
                 load_vfs(path)
+
+
+class ShellVfsTest(unittest.TestCase):
+    """Проверки подключения VFS к оболочке."""
+
+    def test_prompt_uses_vfs_cwd(self):
+        """Приглашение показывает текущий каталог VFS."""
+        self.assertTrue(make_shell().prompt().endswith(":/$ "))
+
+    def test_bad_vfs_stops_emulator(self):
+        """Ошибка загрузки VFS завершает эмулятор с кодом 1."""
+        config = Config(vfs_path=write_json(self, "[]"))
+        shell = Shell(config, out=io.StringIO(), err=io.StringIO())
+        self.assertEqual(run(config, shell), EXIT_ERROR)
+        self.assertIn("vfs: /: node must be", shell.err.getvalue())
 
 
 if __name__ == "__main__":
