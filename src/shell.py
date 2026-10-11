@@ -5,7 +5,7 @@ import socket
 import sys
 
 from config import Config
-from vfs import ROOT_PATH, VirtualFS
+from vfs import ROOT_PATH, VfsError, VirtualFS, count_nodes, render_tree
 
 EXIT_OK = 0
 EXIT_ERROR = 1
@@ -58,6 +58,8 @@ class Shell:
             "cd": self.cmd_cd,
             "exit": self.cmd_exit,
             "conf-dump": self.cmd_conf_dump,
+            "vfs-info": self.cmd_vfs_info,
+            "vfs-tree": self.cmd_vfs_tree,
         }
 
     def prompt(self):
@@ -157,4 +159,32 @@ class Shell:
             return EXIT_ERROR
         for key, value in self.config.items():
             self.print(f"{key}={value}")
+        return EXIT_OK
+
+    def cmd_vfs_info(self, args):
+        """Служебная: вывести источник и статистику загруженной VFS."""
+        if args:
+            self.error("vfs-info: too many arguments")
+            return EXIT_ERROR
+        dirs, files = count_nodes(self.vfs.root)
+        self.print(f"source={self.vfs.source or '(empty in-memory VFS)'}")
+        self.print(f"directories={dirs}")
+        self.print(f"files={files}")
+        self.print(f"size={self.vfs.root.size()}")
+        return EXIT_OK
+
+    def cmd_vfs_tree(self, args):
+        """Служебная: вывести дерево VFS начиная с пути (по умолчанию .)."""
+        if len(args) > 1:
+            self.error("vfs-tree: too many arguments")
+            return EXIT_ERROR
+        try:
+            path, node = self.vfs.lookup(args[0] if args else ".", self.cwd)
+        except VfsError as exc:
+            self.error(f"vfs-tree: {exc}")
+            return EXIT_ERROR
+        self.print(path)
+        if node.is_dir:
+            for line in render_tree(node):
+                self.print(line)
         return EXIT_OK
