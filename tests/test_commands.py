@@ -106,5 +106,42 @@ class LsTest(unittest.TestCase):
         self.assertEqual(err, "ls: invalid option -- 'z'\n")
 
 
+class DuTest(unittest.TestCase):
+    """Проверки команды du."""
+
+    def test_directories(self):
+        """du выводит размеры вложенных каталогов, затем итог."""
+        _, out, _ = run(make_shell(), "du /home/user/projects")
+        self.assertEqual(out.splitlines(), [
+            "15\t/home/user/projects/emulator/src",
+            "26\t/home/user/projects/emulator",
+            "26\t/home/user/projects",
+        ])
+
+    def test_summary_and_files(self):
+        """-s выводит только итог, -a добавляет файлы."""
+        shell = make_shell()
+        self.assertEqual(run(shell, "du -s /")[1], "324\t/\n")
+        _, out, _ = run(shell, "du -a /etc")
+        self.assertEqual(out.splitlines(), [
+            "20\t/etc/hosts", "67\t/etc/passwd", "87\t/etc",
+        ])
+
+    def test_relative_and_file(self):
+        """Относительный путь и путь к файлу."""
+        shell = make_shell()
+        run(shell, "cd /var")
+        self.assertEqual(run(shell, "du log/syslog")[1], "34\tlog/syslog\n")
+        self.assertEqual(run(shell, "du")[1], "34\t./log\n34\t.\n")
+
+    def test_errors(self):
+        """Ошибки: несуществующий путь и неизвестная опция."""
+        shell = make_shell()
+        status, _, err = run(shell, "du /nope")
+        self.assertEqual(status, EXIT_ERROR)
+        self.assertIn("du: cannot access /nope", err)
+        self.assertEqual(run(shell, "du -x")[0], EXIT_USAGE)
+
+
 if __name__ == "__main__":
     unittest.main()

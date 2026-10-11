@@ -177,6 +177,25 @@ def count_nodes(node):
     return dirs, files
 
 
+def disk_usage(node, path, include_files=False):
+    """Вернуть список (размер, путь) для каталога и всех вложенных.
+
+    Порядок как у du: сначала вложенные каталоги, затем сам каталог.
+    С include_files в список попадают и файлы.
+    """
+    if not node.is_dir:
+        return [(node.size(), path)]
+    usage = []
+    for name in sorted(node.children):
+        child = node.children[name]
+        if child.is_dir or include_files:
+            usage.extend(
+                disk_usage(child, join_path(path, name), include_files)
+            )
+    usage.append((node.size(), path))
+    return usage
+
+
 class VirtualFS:
     """Виртуальная файловая система с корневым каталогом root."""
 
