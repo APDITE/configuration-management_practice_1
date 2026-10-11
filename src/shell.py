@@ -5,6 +5,8 @@ import os
 import socket
 import sys
 
+from config import Config
+
 EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_NOT_FOUND = 127
@@ -39,8 +41,12 @@ def parse(line):
 class Shell:
     """Эмулятор командной оболочки UNIX-подобной ОС."""
 
-    def __init__(self, out=None, err=None):
-        """Создать оболочку, выводящую результаты в out и ошибки в err."""
+    def __init__(self, config=None, out=None, err=None):
+        """Создать оболочку с настройками config.
+
+        Результаты выводятся в поток out, ошибки — в поток err.
+        """
+        self.config = config or Config()
         self.out = out or sys.stdout
         self.err = err or sys.stderr
         self.commands = {
@@ -87,6 +93,11 @@ class Shell:
                 self.execute(line)
             except ShellExit:
                 return
+
+    def print_debug_config(self):
+        """Отладочный вывод всех параметров эмулятора при запуске."""
+        for key, value in self.config.items():
+            self.error(f"[debug] {key} = {value or '(not set)'}")
 
     def stub(self, name, args):
         """Заглушка: вывести имя команды и её аргументы."""
