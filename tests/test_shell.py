@@ -1,4 +1,4 @@
-"""Тесты REPL: приглашение, парсер, заглушки и команда exit."""
+"""Тесты REPL: приглашение, парсер и базовые команды."""
 
 import getpass
 import io
@@ -45,13 +45,13 @@ class ParseTest(unittest.TestCase):
 
 
 class CommandTest(unittest.TestCase):
-    """Проверки команд-заглушек и exit."""
+    """Проверки команд ls и exit в пустой VFS."""
 
-    def test_stub_prints_args(self):
-        """Заглушка выводит имя команды и аргументы."""
+    def test_ls_empty_vfs(self):
+        """ls в пустой VFS ничего не выводит."""
         shell = make_shell()
-        shell.execute("ls -a dir")
-        self.assertEqual(shell.out.getvalue(), "ls: args = ['-a', 'dir']\n")
+        self.assertEqual(shell.execute("ls"), 0)
+        self.assertEqual(shell.out.getvalue(), "")
 
     def test_unknown_command(self):
         """Неизвестная команда сообщает об ошибке."""

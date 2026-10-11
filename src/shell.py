@@ -9,8 +9,12 @@ from vfs import ROOT_PATH, VfsError, VirtualFS, count_nodes, render_tree
 
 EXIT_OK = 0
 EXIT_ERROR = 1
+EXIT_USAGE = 2
 EXIT_NOT_FOUND = 127
 COMMENT = "#"
+OPTION_PREFIX = "-"
+CURRENT_DIR = "."
+SIZE_WIDTH = 8
 
 
 class ShellExit(Exception):
@@ -37,6 +41,39 @@ def parse(line):
     if not parts:
         return None, []
     return parts[0], parts[1:]
+
+
+def split_options(args):
+    """Отделить короткие опции (-a, -la) от остальных аргументов.
+
+    Возвращает кортеж (множество букв опций, список аргументов).
+    """
+    options, operands = set(), []
+    for arg in args:
+        if arg.startswith(OPTION_PREFIX) and len(arg) > 1:
+            options.update(arg[1:])
+        else:
+            operands.append(arg)
+    return options, operands
+
+
+def visible_entries(node, show_hidden):
+    """Вернуть отсортированные пары (имя, узел) содержимого каталога.
+
+    Имена, начинающиеся с точки, скрыты, если show_hidden ложно.
+    """
+    return [
+        (name, node.children[name]) for name in sorted(node.children)
+        if show_hidden or not name.startswith(".")
+    ]
+
+
+def format_entry(name, node, long_format):
+    """Отформатировать одну запись вывода ls."""
+    if not long_format:
+        return name
+    kind = "d" if node.is_dir else "-"
+    return f"{kind} {node.size():>{SIZE_WIDTH}} {name}"
 
 
 class Shell:
@@ -132,14 +169,48 @@ class Shell:
                 )
         return True
 
-    def stub(self, name, args):
-        """Заглушка: вывести имя команды и её аргументы."""
-        self.print(f"{name}: args = {args}")
-        return EXIT_OK
+    def check_options(self, command, options, allowed):
+        """Проверить опции команды; сообщить о первой недопустимой."""
+        for option in sorted(options - set(allowed)):
+            self.error(f"{command}: invalid option -- '{option}'")
+            return False
+        return True
 
     def cmd_ls(self, args):
-        """Команда ls (заглушка)."""
-        return self.stub("ls", args)
+        """Вывести содержимое каталогов VFS: ls [-a] [-l] [путь...].
+
+        -a — показывать скрытые файлы, -l — тип и размер в байтах.
+        """
+        options, paths = split_options(args)
+        if not self.check_options("ls", options, "al"):
+            return EXIT_USAGE
+        paths = paths or [CURRENT_DIR]
+        status = EXIT_OK
+        for index, path in enumerate(paths):
+            try:
+                _, node = self.vfs.lookup(path, self.cwd)
+            except VfsError as exc:
+                self.error(f"ls: cannot access {exc}")
+                status = EXIT_ERROR
+                continue
+            if len(paths) > 1 and node.is_dir:
+                self.print(("\n" if index else "") + f"{path}:")
+            self.print_listing(path, node, options)
+        return status
+
+    def print_listing(self, path, node, options):
+        """Вывести список файлов каталога или имя файла для ls."""
+        long_format = "l" in options
+        if node.is_dir:
+            entries = visible_entries(node, "a" in options)
+        else:
+            entries = [(path, node)]
+        lines = [format_entry(n, e, long_format) for n, e in entries]
+        if long_format:
+            for line in lines:
+                self.print(line)
+        elif lines:
+            self.print("  ".join(lines))
 
     def cmd_cd(self, args):
         """Сменить текущий каталог VFS: cd [путь].
