@@ -1,0 +1,9 @@
+{
+  "type": "dir",
+  "children": {
+    "a.txt": {
+      "type": "link",
+      "target": "/etc"
+    }
+  }
+}

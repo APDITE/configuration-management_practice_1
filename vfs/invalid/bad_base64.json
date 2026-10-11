@@ -1,0 +1,10 @@
+{
+  "type": "dir",
+  "children": {
+    "img.bin": {
+      "type": "file",
+      "encoding": "base64",
+      "content": "@@not-base64@@"
+    }
+  }
+}
