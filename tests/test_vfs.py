@@ -146,5 +146,46 @@ class VfsCommandsTest(unittest.TestCase):
         self.assertIn("vfs: /: node must be", shell.err.getvalue())
 
 
+class CopyTest(unittest.TestCase):
+    """Проверки копирования узлов VFS в памяти."""
+
+    def setUp(self):
+        """Загрузить VFS с глубокой вложенностью."""
+        self.vfs = load_vfs(DEEP_VFS)
+
+    def test_copy_file(self):
+        """Файл копируется под новым именем и внутрь каталога."""
+        self.assertEqual(self.vfs.copy("/etc/hosts", "/tmp/h"), "/tmp/h")
+        self.assertEqual(self.vfs.copy("hosts", "/tmp", "/etc"),
+                         "/tmp/hosts")
+        _, node = self.vfs.lookup("/tmp/h")
+        self.assertEqual(node.data, b"127.0.0.1 localhost\n")
+
+    def test_copy_dir_is_deep(self):
+        """Копия каталога независима от оригинала."""
+        self.vfs.copy("/home/user/docs", "/tmp/docs", recursive=True)
+        self.vfs.copy("/etc/hosts", "/tmp/docs")
+        _, original = self.vfs.lookup("/home/user/docs")
+        self.assertNotIn("hosts", original.children)
+        _, copy = self.vfs.lookup("/tmp/docs/photo.png")
+        self.assertEqual(copy.data, original.children["photo.png"].data)
+
+    def test_errors(self):
+        """Ошибки копирования."""
+        cases = [
+            ("/home", "/tmp", False, "-r not specified"),
+            ("/home", "/home/user", True, "into itself"),
+            ("/", "/tmp", True, "into itself"),
+            ("/nope", "/tmp", False, "No such file"),
+            ("/etc/hosts", "/no/dir/x", False, "cannot create"),
+            ("/etc/hosts", "/etc/hosts", False, "same file"),
+            ("/var", "/etc/hosts", True, "type mismatch"),
+        ]
+        for src, dst, recursive, message in cases:
+            with self.subTest(src=src, dst=dst):
+                with self.assertRaisesRegex(VfsError, message):
+                    self.vfs.copy(src, dst, recursive=recursive)
+
+
 if __name__ == "__main__":
     unittest.main()
