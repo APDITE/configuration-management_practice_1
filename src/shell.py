@@ -3,6 +3,7 @@
 import getpass
 import socket
 import sys
+from datetime import datetime
 
 from config import Config
 from vfs import ROOT_PATH, VfsError, VirtualFS, count_nodes, disk_usage
@@ -16,6 +17,8 @@ COMMENT = "#"
 OPTION_PREFIX = "-"
 CURRENT_DIR = "."
 SIZE_WIDTH = 8
+DATE_FORMAT = "%a %b %d %H:%M:%S %Z %Y"
+FORMAT_PREFIX = "+"
 
 
 class ShellExit(Exception):
@@ -42,6 +45,11 @@ def parse(line):
     if not parts:
         return None, []
     return parts[0], parts[1:]
+
+
+def local_now():
+    """Вернуть текущие дату и время ОС с локальным часовым поясом."""
+    return datetime.now().astimezone()
 
 
 def split_options(args):
@@ -89,12 +97,14 @@ class Shell:
         self.config = config or Config()
         self.vfs = vfs or VirtualFS()
         self.cwd = ROOT_PATH
+        self.clock = local_now
         self.out = out or sys.stdout
         self.err = err or sys.stderr
         self.commands = {
             "ls": self.cmd_ls,
             "cd": self.cmd_cd,
             "du": self.cmd_du,
+            "date": self.cmd_date,
             "exit": self.cmd_exit,
             "conf-dump": self.cmd_conf_dump,
             "vfs-info": self.cmd_vfs_info,
@@ -258,6 +268,23 @@ class Shell:
             for size, name in usage:
                 self.print(f"{size}\t{name}")
         return status
+
+    def cmd_date(self, args):
+        """Вывести текущие дату и время ОС: date [+ФОРМАТ].
+
+        Формат задаётся как в strftime, например date +%Y-%m-%d.
+        """
+        if len(args) > 1:
+            self.error(f"date: extra operand '{args[1]}'")
+            return EXIT_ERROR
+        date_format = DATE_FORMAT
+        if args:
+            if not args[0].startswith(FORMAT_PREFIX):
+                self.error(f"date: invalid date '{args[0]}'")
+                return EXIT_ERROR
+            date_format = args[0][len(FORMAT_PREFIX):]
+        self.print(self.clock().strftime(date_format))
+        return EXIT_OK
 
     def cmd_exit(self, args):
         """Завершить работу эмулятора."""
