@@ -7,7 +7,7 @@
 Консольное приложение (CLI) на Python 3, имитирующее работу в командной
 строке UNIX-подобной ОС. Эмулятор работает с виртуальной файловой
 системой (VFS), которая загружается из JSON-файла и полностью хранится
-в памяти: исходный файл никогда не изменяется.
+в памяти: исходный файл никогда не изменяется, даже после `cp`.
 
 Приглашение к вводу строится по реальным данным ОС (имя пользователя и
 имя хоста) и текущему каталогу VFS: `user@host:/home/user$`.
@@ -106,6 +106,7 @@ script error: scripts/startup_error.txt:4: exit status 127
 | `ls [-a] [-l] [путь...]` | содержимое каталогов (по умолчанию — текущего); `-a` — со скрытыми файлами, `-l` — тип (`d`/`-`) и размер в байтах |
 | `cd [путь]` | сменить текущий каталог VFS; без аргумента — переход в корень `/` |
 | `du [-a] [-s] [путь...]` | размер в байтах каждого вложенного каталога и итог; `-a` — и файлов, `-s` — только итог |
+| `cp [-r] ИСТОЧНИК... НАЗНАЧЕНИЕ` | копирование в памяти: файл — под новым именем или в каталог (существующий файл перезаписывается); каталог — только с `-r`/`-R`; несколько источников — в каталог |
 | `date [+ФОРМАТ]` | текущие дата и время ОС; формат как в `strftime`, например `date +%Y-%m-%d` |
 | `exit` | завершает работу эмулятора |
 | `conf-dump` | служебная: выводит параметры эмулятора в формате `ключ=значение` |
@@ -121,6 +122,7 @@ script error: scripts/startup_error.txt:4: exit status 127
 | неизвестная опция | `ls: invalid option -- 'z'` | 2 |
 | путь для `ls`/`du` не существует | `ls: cannot access /nope: No such file or directory` | 1 |
 | `cd` в несуществующий каталог или файл | `cd: /nope: No such file or directory`, `cd: /etc/hosts: Not a directory` | 1 |
+| ошибки `cp` | `cp: missing file operand`, `cp: -r not specified; omitting directory '/etc'`, `cp: cannot copy a directory, '/home', into itself, '/home/user'`, `cp: target '/etc/hosts' is not a directory` | 1 |
 | неверный аргумент `date` | `date: invalid date 'tomorrow'`, `date: extra operand '+%m'` | 1 |
 | путь не существует | `vfs-tree: /nope: No such file or directory` | 1 |
 | файл вместо каталога | `vfs-tree: /etc/hosts/x: Not a directory` | 1 |
@@ -163,6 +165,7 @@ python3 -m unittest discover -s tests -v
 | `test_vfs_errors.sh` | ошибки загрузки VFS |
 | `test_stage3.sh` | все команды этапов 1–3, включая ошибки (`startup_stage3.txt`) |
 | `test_stage4.sh` | команды `ls`, `cd`, `du`, `date`, включая ошибки (`startup_stage4.txt`) |
+| `test_stage5.sh` | команда `cp`, включая ошибки; проверяет, что JSON-файл VFS не изменился (`startup_stage5.txt`) |
 
 ## Примеры использования
 
@@ -217,6 +220,21 @@ foo: command not found
 user@host:/$ exit 1
 exit: too many arguments
 user@host:/$ exit
+```
+
+Копирование (этап 5) — все изменения только в памяти:
+
+```
+user@host:/$ cp /etc/hosts /tmp/hosts.bak
+user@host:/$ cp -r /home/user/docs /tmp
+user@host:/$ vfs-tree /tmp
+/tmp
+├── docs/
+│   ├── photo.png
+│   └── report.txt
+└── hosts.bak
+user@host:/$ cp /etc /tmp
+cp: -r not specified; omitting directory '/etc'
 ```
 
 Запуск со стартовым скриптом:
