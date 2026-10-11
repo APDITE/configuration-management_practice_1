@@ -1,0 +1,47 @@
+# Стартовый скрипт для проверки команды этапа 5: cp.
+# Все изменения выполняются только в памяти, JSON-файл VFS не меняется.
+# Запуск: ./run.sh --vfs vfs/deep.json --script scripts/startup_stage5.txt
+
+# --- исходное состояние ---
+ls /tmp
+ls /etc
+
+# --- файл: новое имя, внутрь каталога, относительные пути ---
+cp /etc/hosts /tmp/hosts.bak
+cp /etc/passwd /tmp
+cd /etc
+cp hosts ../tmp/hosts.copy
+cd /
+ls -l /tmp
+
+# --- перезапись существующего файла ---
+cp /etc/hosts /tmp/passwd
+ls -l /tmp
+
+# --- каталог целиком с -r ---
+cp -r /home/user/docs /tmp
+cp -R /var/log /tmp/logs
+vfs-tree /tmp
+
+# --- несколько источников в каталог ---
+cp -r /bin /etc/hosts /home/user/projects
+vfs-tree /home/user/projects
+
+# --- копия независима от оригинала ---
+cp /etc/passwd /tmp/docs
+ls /tmp/docs
+ls /home/user/docs
+du -s /
+
+# --- обработка ошибок ---
+cp                             # нет операндов
+cp /etc/hosts                  # нет назначения
+cp /etc /tmp                   # каталог без -r
+cp -r /home /home/user         # копирование каталога в себя
+cp /no/such/file /tmp          # источник не существует
+cp /etc/hosts /no/such/dir/x   # каталог назначения не существует
+cp /etc/hosts /etc/hosts       # файл в самого себя
+cp /etc/hosts /etc/passwd /etc/hosts   # назначение не каталог
+cp -x /etc/hosts /tmp          # неизвестная опция
+
+exit
