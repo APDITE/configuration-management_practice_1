@@ -53,6 +53,7 @@ class Shell:
             "ls": self.cmd_ls,
             "cd": self.cmd_cd,
             "exit": self.cmd_exit,
+            "conf-dump": self.cmd_conf_dump,
         }
 
     def prompt(self):
@@ -118,3 +119,12 @@ class Shell:
             self.error("exit: too many arguments")
             return EXIT_ERROR
         raise ShellExit()
+
+    def cmd_conf_dump(self, args):
+        """Вывести параметры эмулятора в формате ключ=значение."""
+        if args:
+            self.error("conf-dump: too many arguments")
+            return EXIT_ERROR
+        for key, value in self.config.items():
+            self.print(f"{key}={value}")
+        return EXIT_OK
