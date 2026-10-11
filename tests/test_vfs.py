@@ -1,4 +1,4 @@
-"""Тесты виртуальной файловой системы и её подключения к оболочке."""
+"""Тесты виртуальной файловой системы и служебных команд VFS."""
 
 import io
 import json
@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 from config import Config  # noqa: E402
 from emulator import run  # noqa: E402
 from shell import EXIT_ERROR, Shell  # noqa: E402
-from vfs import VfsError, load_vfs, normalize  # noqa: E402
+from vfs import VfsError, count_nodes, load_vfs, normalize  # noqa: E402
 
 DEEP_VFS = os.path.join(ROOT, "vfs", "deep.json")
 SEVERAL_VFS = os.path.join(ROOT, "vfs", "several_files.json")
@@ -59,7 +59,7 @@ class LoadVfsTest(unittest.TestCase):
 
     def test_minimal(self):
         """Минимальная VFS содержит только пустой корень."""
-        self.assertEqual(load_vfs(MINIMAL_VFS).root.children, {})
+        self.assertEqual(count_nodes(load_vfs(MINIMAL_VFS).root), (0, 0))
 
     def test_base64_file(self):
         """Двоичный файл декодируется из base64."""
@@ -99,13 +99,44 @@ class LoadVfsTest(unittest.TestCase):
             with self.subTest(path=path), self.assertRaises(VfsError):
                 load_vfs(path)
 
+    def test_source_not_modified(self):
+        """Загрузка VFS не изменяет исходный файл."""
+        before = os.path.getmtime(DEEP_VFS)
+        make_shell().execute("vfs-tree /")
+        self.assertEqual(os.path.getmtime(DEEP_VFS), before)
 
-class ShellVfsTest(unittest.TestCase):
-    """Проверки подключения VFS к оболочке."""
+
+class VfsCommandsTest(unittest.TestCase):
+    """Проверки служебных команд vfs-info и vfs-tree."""
 
     def test_prompt_uses_vfs_cwd(self):
         """Приглашение показывает текущий каталог VFS."""
         self.assertTrue(make_shell().prompt().endswith(":/$ "))
+
+    def test_vfs_info(self):
+        """vfs-info выводит число каталогов и файлов."""
+        shell = make_shell(SEVERAL_VFS)
+        shell.execute("vfs-info")
+        self.assertIn("directories=0\nfiles=4\n", shell.out.getvalue())
+
+    def test_vfs_tree(self):
+        """vfs-tree выводит вложенные узлы с отступами."""
+        shell = make_shell()
+        shell.execute("vfs-tree /home/user/projects")
+        self.assertEqual(shell.out.getvalue().splitlines(), [
+            "/home/user/projects",
+            "└── emulator/",
+            "    ├── README.md",
+            "    └── src/",
+            "        └── main.py",
+        ])
+
+    def test_vfs_tree_errors(self):
+        """vfs-tree сообщает об ошибках пути и аргументов."""
+        shell = make_shell()
+        self.assertEqual(shell.execute("vfs-tree /nope"), EXIT_ERROR)
+        self.assertEqual(shell.execute("vfs-tree / /etc"), EXIT_ERROR)
+        self.assertIn("No such file", shell.err.getvalue())
 
     def test_bad_vfs_stops_emulator(self):
         """Ошибка загрузки VFS завершает эмулятор с кодом 1."""

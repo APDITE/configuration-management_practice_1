@@ -18,6 +18,11 @@ ENCODING_TEXT = "utf-8"
 ENCODING_BASE64 = "base64"
 RESERVED_NAMES = (".", "..")
 
+TREE_BRANCH = "├── "
+TREE_LAST = "└── "
+TREE_PIPE = "│   "
+TREE_SPACE = "    "
+
 
 class VfsError(Exception):
     """Ошибка загрузки VFS или обращения к её узлам."""
@@ -141,6 +146,35 @@ def load_vfs(path):
     if not root.is_dir:
         raise VfsError(f"{ROOT_PATH}: root must be a directory")
     return VirtualFS(root, source=path)
+
+
+def render_tree(node, prefix=""):
+    """Вернуть строки дерева для дочерних узлов каталога node."""
+    lines = []
+    names = sorted(node.children)
+    for index, name in enumerate(names):
+        child = node.children[name]
+        last = index == len(names) - 1
+        suffix = SEPARATOR if child.is_dir else ""
+        lines.append(prefix + (TREE_LAST if last else TREE_BRANCH)
+                     + name + suffix)
+        if child.is_dir:
+            extension = TREE_SPACE if last else TREE_PIPE
+            lines.extend(render_tree(child, prefix + extension))
+    return lines
+
+
+def count_nodes(node):
+    """Подсчитать число каталогов и файлов внутри каталога node."""
+    dirs, files = 0, 0
+    for child in node.children.values():
+        if child.is_dir:
+            sub_dirs, sub_files = count_nodes(child)
+            dirs += 1 + sub_dirs
+            files += sub_files
+        else:
+            files += 1
+    return dirs, files
 
 
 class VirtualFS:
