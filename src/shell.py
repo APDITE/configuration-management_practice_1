@@ -142,8 +142,24 @@ class Shell:
         return self.stub("ls", args)
 
     def cmd_cd(self, args):
-        """Команда cd (заглушка)."""
-        return self.stub("cd", args)
+        """Сменить текущий каталог VFS: cd [путь].
+
+        Без аргумента переходит в корневой каталог.
+        """
+        if len(args) > 1:
+            self.error("cd: too many arguments")
+            return EXIT_ERROR
+        target = args[0] if args else ROOT_PATH
+        try:
+            path, node = self.vfs.lookup(target, self.cwd)
+        except VfsError as exc:
+            self.error(f"cd: {exc}")
+            return EXIT_ERROR
+        if not node.is_dir:
+            self.error(f"cd: {target}: Not a directory")
+            return EXIT_ERROR
+        self.cwd = path
+        return EXIT_OK
 
     def cmd_exit(self, args):
         """Завершить работу эмулятора."""
