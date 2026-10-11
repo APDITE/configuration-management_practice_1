@@ -103,8 +103,10 @@ script error: scripts/startup_error.txt:4: exit status 127
 |---|---|
 | приглашение | `user@host:/cwd$` — имя пользователя и хоста ОС, текущий каталог VFS |
 | парсер | делит строку на команду и аргументы по пробелам; всё после `#` — комментарий |
-| `ls [арг...]` | заглушка: выводит имя команды и аргументы |
-| `cd [арг...]` | заглушка: выводит имя команды и аргументы |
+| `ls [-a] [-l] [путь...]` | содержимое каталогов (по умолчанию — текущего); `-a` — со скрытыми файлами, `-l` — тип (`d`/`-`) и размер в байтах |
+| `cd [путь]` | сменить текущий каталог VFS; без аргумента — переход в корень `/` |
+| `du [-a] [-s] [путь...]` | размер в байтах каждого вложенного каталога и итог; `-a` — и файлов, `-s` — только итог |
+| `date [+ФОРМАТ]` | текущие дата и время ОС; формат как в `strftime`, например `date +%Y-%m-%d` |
 | `exit` | завершает работу эмулятора |
 | `conf-dump` | служебная: выводит параметры эмулятора в формате `ключ=значение` |
 | `vfs-info` | служебная: источник VFS, число каталогов и файлов, общий размер |
@@ -115,7 +117,11 @@ script error: scripts/startup_error.txt:4: exit status 127
 | Ситуация | Сообщение | Код |
 |---|---|---|
 | неизвестная команда | `foo: command not found` | 127 |
-| лишние аргументы | `exit: too many arguments` (работа продолжается) | 1 |
+| лишние аргументы | `exit: too many arguments`, `cd: too many arguments` (работа продолжается) | 1 |
+| неизвестная опция | `ls: invalid option -- 'z'` | 2 |
+| путь для `ls`/`du` не существует | `ls: cannot access /nope: No such file or directory` | 1 |
+| `cd` в несуществующий каталог или файл | `cd: /nope: No such file or directory`, `cd: /etc/hosts: Not a directory` | 1 |
+| неверный аргумент `date` | `date: invalid date 'tomorrow'`, `date: extra operand '+%m'` | 1 |
 | путь не существует | `vfs-tree: /nope: No such file or directory` | 1 |
 | файл вместо каталога | `vfs-tree: /etc/hosts/x: Not a directory` | 1 |
 | стартовый скрипт не найден | `script: cannot read '...': No such file or directory` | 1 (выход) |
@@ -156,8 +162,34 @@ python3 -m unittest discover -s tests -v
 | `test_vfs_deep.sh` | VFS с вложенностью 3+ уровней |
 | `test_vfs_errors.sh` | ошибки загрузки VFS |
 | `test_stage3.sh` | все команды этапов 1–3, включая ошибки (`startup_stage3.txt`) |
+| `test_stage4.sh` | команды `ls`, `cd`, `du`, `date`, включая ошибки (`startup_stage4.txt`) |
 
 ## Примеры использования
+
+Навигация по VFS (этап 4):
+
+```
+$ ./run.sh --vfs vfs/deep.json
+user@host:/$ ls
+bin  etc  home  tmp  var
+user@host:/$ cd /home/user
+user@host:/home/user$ ls -la
+-       17 .bashrc
+d      126 docs
+d       26 projects
+user@host:/home/user$ du
+126	./docs
+15	./projects/emulator/src
+26	./projects/emulator
+26	./projects
+169	.
+user@host:/home/user$ cd /etc/hosts
+cd: /etc/hosts: Not a directory
+user@host:/home/user$ date
+Sun Oct 11 17:05:09 MSK 2026
+user@host:/home/user$ date +%Y-%m-%d
+2026-10-11
+```
 
 Интерактивный режим:
 
