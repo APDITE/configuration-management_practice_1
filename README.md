@@ -5,8 +5,12 @@
 ## Общее описание
 
 Консольное приложение (CLI) на Python 3, имитирующее работу в командной
-строке UNIX-подобной ОС. Приглашение к вводу строится по реальным данным
-ОС: `имя_пользователя@имя_хоста:каталог$`.
+строке UNIX-подобной ОС. Эмулятор работает с виртуальной файловой
+системой (VFS), которая загружается из JSON-файла и полностью хранится
+в памяти: исходный файл никогда не изменяется.
+
+Приглашение к вводу строится по реальным данным ОС (имя пользователя и
+имя хоста) и текущему каталогу VFS: `user@host:/home/user$`.
 
 Сторонние зависимости не требуются — только стандартная библиотека
 Python 3.8+.
@@ -15,9 +19,11 @@ Python 3.8+.
 
 ```
 src/
-  emulator.py   точка входа
+  emulator.py   точка входа: параметры, загрузка VFS, скрипт, REPL
   config.py     параметры командной строки
-  shell.py      приглашение, парсер, команды, REPL, стартовый скрипт
+  shell.py      приглашение, парсер, диспетчер команд, REPL, скрипты
+  vfs.py        виртуальная файловая система в памяти
+vfs/            примеры VFS (vfs/invalid/ — заведомо ошибочные)
 scripts/        стартовые скрипты эмулятора (*.txt) и скрипты ОС (*.sh)
 tests/          модульные тесты (unittest)
 run.sh          запуск эмулятора и тестов
@@ -29,7 +35,7 @@ run.sh          запуск эмулятора и тестов
 
 | Параметр | Описание |
 |---|---|
-| `--vfs PATH` | путь к физическому расположению VFS |
+| `--vfs PATH` | путь к JSON-файлу VFS; без параметра используется пустая VFS |
 | `--script PATH` | путь к стартовому скрипту эмулятора |
 | `-h`, `--help` | справка по параметрам |
 
@@ -39,6 +45,40 @@ run.sh          запуск эмулятора и тестов
 [debug] vfs = /path/to/vfs.json
 [debug] script = (not set)
 ```
+
+### Формат VFS
+
+Корень и каталоги — объекты с типом `dir` и словарём `children`
+(имя → узел). Файлы — объекты с типом `file` и полем `content`.
+Двоичные данные хранятся в base64 (`"encoding": "base64"`), текст —
+как есть (`"encoding": "utf-8"`, значение по умолчанию).
+
+```json
+{
+  "type": "dir",
+  "children": {
+    "etc": {
+      "type": "dir",
+      "children": {
+        "hosts": {"type": "file", "content": "127.0.0.1 localhost\n"}
+      }
+    },
+    "logo.png": {"type": "file", "encoding": "base64", "content": "iVBORw0K..."}
+  }
+}
+```
+
+Примеры в каталоге `vfs/`:
+
+| Файл | Содержимое |
+|---|---|
+| `minimal.json` | только пустой корневой каталог |
+| `several_files.json` | несколько файлов в корне, включая двоичный PNG |
+| `deep.json` | дерево каталогов глубиной до 6 уровней |
+| `invalid/*.json` | ошибки: битый JSON, неизвестный тип узла, неверный base64, файл в корне |
+
+При ошибке загрузки VFS эмулятор сообщает причину и завершается с
+кодом 1.
 
 ### Стартовый скрипт
 
@@ -61,21 +101,26 @@ script error: scripts/startup_error.txt:4: exit status 127
 
 | Функция / команда | Описание |
 |---|---|
-| приглашение | `user@host:~$` — имя пользователя, имя хоста и текущий каталог ОС |
+| приглашение | `user@host:/cwd$` — имя пользователя и хоста ОС, текущий каталог VFS |
 | парсер | делит строку на команду и аргументы по пробелам; всё после `#` — комментарий |
 | `ls [арг...]` | заглушка: выводит имя команды и аргументы |
 | `cd [арг...]` | заглушка: выводит имя команды и аргументы |
 | `exit` | завершает работу эмулятора |
 | `conf-dump` | служебная: выводит параметры эмулятора в формате `ключ=значение` |
+| `vfs-info` | служебная: источник VFS, число каталогов и файлов, общий размер |
+| `vfs-tree [путь]` | служебная: дерево VFS от указанного пути (по умолчанию — текущий каталог); поддерживаются абсолютные и относительные пути, `.` и `..` |
 
 ### Обработка ошибок
 
-| Ситуация | Сообщение |
-|---|---|
-| неизвестная команда | `foo: command not found` |
-| `exit` / `conf-dump` с аргументами | `exit: too many arguments` (работа продолжается) |
-| стартовый скрипт не найден | `script: cannot read '...': No such file or directory` (выход с кодом 1) |
-| неизвестный параметр запуска | `emulator: error: unrecognized arguments: ...` (выход с кодом 2) |
+| Ситуация | Сообщение | Код |
+|---|---|---|
+| неизвестная команда | `foo: command not found` | 127 |
+| лишние аргументы | `exit: too many arguments` (работа продолжается) | 1 |
+| путь не существует | `vfs-tree: /nope: No such file or directory` | 1 |
+| файл вместо каталога | `vfs-tree: /etc/hosts/x: Not a directory` | 1 |
+| стартовый скрипт не найден | `script: cannot read '...': No such file or directory` | 1 (выход) |
+| VFS не найдена / неверна | `vfs: cannot read '...'`, `vfs: invalid JSON in '...'`, `vfs: /a.txt: unknown node type 'link'` | 1 (выход) |
+| неизвестный параметр запуска | `emulator: error: unrecognized arguments: ...` | 2 (выход) |
 
 Пустая строка игнорируется. `Ctrl+D` / `Ctrl+C` завершают работу.
 
@@ -84,57 +129,92 @@ script error: scripts/startup_error.txt:4: exit status 127
 Сборка не требуется.
 
 ```sh
-./run.sh                                   # интерактивный режим
-./run.sh --script scripts/startup_basic.txt
-./run.sh test                              # запуск тестов
-```
-
-Скрипты ОС для проверки параметров командной строки:
-
-```sh
-scripts/test_no_params.sh      # без параметров
-scripts/test_vfs_param.sh      # только --vfs
-scripts/test_script_param.sh   # только --script
-scripts/test_all_params.sh     # оба параметра
-scripts/test_errors.sh         # ошибки запуска и стартового скрипта
+./run.sh                                  # интерактивный режим, пустая VFS
+./run.sh --vfs vfs/deep.json              # интерактивный режим с VFS
+./run.sh --vfs vfs/deep.json --script scripts/startup_stage3.txt
+./run.sh test                             # запуск тестов
 ```
 
 Без `run.sh`:
 
 ```sh
-python3 src/emulator.py
+python3 src/emulator.py --vfs vfs/deep.json
 python3 -m unittest discover -s tests -t . -v
 ```
 
+Скрипты ОС (`scripts/*.sh`):
+
+| Скрипт | Что проверяет |
+|---|---|
+| `test_no_params.sh` | запуск без параметров |
+| `test_vfs_param.sh` | только `--vfs` |
+| `test_script_param.sh` | только `--script` |
+| `test_all_params.sh` | оба параметра |
+| `test_errors.sh` | ошибки в стартовом скрипте, отсутствующий скрипт, неизвестный параметр |
+| `test_vfs_minimal.sh` | минимальная VFS |
+| `test_vfs_several_files.sh` | VFS из нескольких файлов |
+| `test_vfs_deep.sh` | VFS с вложенностью 3+ уровней |
+| `test_vfs_errors.sh` | ошибки загрузки VFS |
+| `test_stage3.sh` | все команды этапов 1–3, включая ошибки (`startup_stage3.txt`) |
+
 ## Примеры использования
 
+Интерактивный режим:
+
 ```
-user@host:~/practice$ ls -l /home
+$ ./run.sh --vfs vfs/deep.json
+[debug] vfs = /home/user/practice/vfs/deep.json
+[debug] script = (not set)
+user@host:/$ vfs-info
+source=vfs/deep.json
+directories=11
+files=10
+size=324
+user@host:/$ vfs-tree /home/user/../../etc
+/etc
+├── hosts
+└── passwd
+user@host:/$ vfs-tree /etc/hosts/inner
+vfs-tree: /etc/hosts/inner: Not a directory
+user@host:/$ ls -l /home
 ls: args = ['-l', '/home']
-user@host:~/practice$ cd /tmp
-cd: args = ['/tmp']
-user@host:~/practice$
-user@host:~/practice$ foo bar
+user@host:/$ cd /home/user
+cd: args = ['/home/user']
+user@host:/$ foo bar
 foo: command not found
-user@host:~/practice$ exit 1
+user@host:/$ exit 1
 exit: too many arguments
-user@host:~/practice$ exit
+user@host:/$ exit
 ```
 
 Запуск со стартовым скриптом:
 
 ```
-$ ./run.sh --script scripts/startup_basic.txt
-[debug] vfs = (not set)
-[debug] script = /home/user/practice/scripts/startup_basic.txt
-user@host:~/practice$ conf-dump
-vfs=
-script=/home/user/practice/scripts/startup_basic.txt
-user@host:~/practice$ ls -l /home       # комментарий в конце строки отбрасывается
-ls: args = ['-l', '/home']
-user@host:~/practice$ cd /tmp
-cd: args = ['/tmp']
-user@host:~/practice$ ls
-ls: args = []
-user@host:~/practice$ exit
+$ ./run.sh --vfs vfs/several_files.json --script scripts/startup_vfs_check.txt
+[debug] vfs = /home/user/practice/vfs/several_files.json
+[debug] script = /home/user/practice/scripts/startup_vfs_check.txt
+user@host:/$ conf-dump
+vfs=/home/user/practice/vfs/several_files.json
+script=/home/user/practice/scripts/startup_vfs_check.txt
+user@host:/$ vfs-info
+source=vfs/several_files.json
+directories=0
+files=4
+size=164
+user@host:/$ vfs-tree /
+/
+├── empty.txt
+├── logo.png
+├── notes.md
+└── readme.txt
+user@host:/$ exit
+```
+
+Ошибка загрузки VFS:
+
+```
+$ ./run.sh --vfs vfs/invalid/bad_base64.json
+[debug] vfs = /home/user/practice/vfs/invalid/bad_base64.json
+[debug] script = (not set)
+vfs: /img.bin: invalid base64 content
 ```
