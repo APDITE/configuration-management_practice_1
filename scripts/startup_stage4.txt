@@ -1,0 +1,49 @@
+# Стартовый скрипт для проверки команд этапа 4: ls, cd, du, date.
+# Запуск: ./run.sh --vfs vfs/deep.json --script scripts/startup_stage4.txt
+
+# --- ls: текущий каталог, пути, опции -a и -l ---
+ls
+ls /home/user
+ls -a /home/user
+ls -l /etc
+ls -la /home/user
+ls /etc/hosts                  # для файла выводится его имя
+ls /etc /var                   # несколько путей — с заголовками
+
+# --- cd: абсолютные и относительные пути, . и .. ---
+cd /home/user
+ls
+cd docs
+ls -l
+cd ..
+cd ./projects/emulator/src
+ls
+cd ../../../..
+cd                             # без аргументов — в корень
+
+# --- du: каталоги, -a, -s, относительные пути ---
+du /home/user
+du -a /etc
+du -s /
+cd /var
+du
+du log/syslog
+cd /
+
+# --- date: формат по умолчанию и свой формат ---
+date
+date +%Y-%m-%d
+date +%H:%M:%S
+
+# --- обработка ошибок ---
+ls /no/such/dir                # путь не существует
+ls -z                          # неизвестная опция
+cd /no/such/dir                # каталог не существует
+cd /etc/hosts                  # файл вместо каталога
+cd /etc /var                   # лишний аргумент
+du /no/such/dir                # путь не существует
+du -x                          # неизвестная опция
+date tomorrow                  # аргумент без +
+date +%Y +%m                   # лишний аргумент
+
+exit
