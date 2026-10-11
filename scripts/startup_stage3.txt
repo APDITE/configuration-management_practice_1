@@ -13,7 +13,7 @@ vfs-tree /home/user/../../etc
 vfs-tree ./var/log/
 vfs-tree /etc/hosts            # для файла выводится только путь
 
-# --- заглушки ls и cd ---
+# --- ls и cd ---
 ls -l /home
 cd /home/user
 
