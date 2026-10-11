@@ -105,6 +105,7 @@ class Shell:
             "cd": self.cmd_cd,
             "du": self.cmd_du,
             "date": self.cmd_date,
+            "cp": self.cmd_cp,
             "exit": self.cmd_exit,
             "conf-dump": self.cmd_conf_dump,
             "vfs-info": self.cmd_vfs_info,
@@ -285,6 +286,45 @@ class Shell:
             date_format = args[0][len(FORMAT_PREFIX):]
         self.print(self.clock().strftime(date_format))
         return EXIT_OK
+
+    def is_dir(self, path):
+        """Проверить, что путь существует и является каталогом VFS."""
+        try:
+            _, node = self.vfs.lookup(path, self.cwd)
+        except VfsError:
+            return False
+        return node.is_dir
+
+    def cmd_cp(self, args):
+        """Копировать в памяти: cp [-r] ИСТОЧНИК... НАЗНАЧЕНИЕ.
+
+        Каталоги копируются только с опцией -r (или -R). При нескольких
+        источниках назначение должно быть каталогом.
+        """
+        options, paths = split_options(args)
+        if not self.check_options("cp", options, "rR"):
+            return EXIT_USAGE
+        if not paths:
+            self.error("cp: missing file operand")
+            return EXIT_ERROR
+        if len(paths) == 1:
+            self.error(
+                f"cp: missing destination file operand after '{paths[0]}'"
+            )
+            return EXIT_ERROR
+        *sources, dest = paths
+        if len(sources) > 1 and not self.is_dir(dest):
+            self.error(f"cp: target '{dest}' is not a directory")
+            return EXIT_ERROR
+        recursive = bool(options & set("rR"))
+        status = EXIT_OK
+        for src in sources:
+            try:
+                self.vfs.copy(src, dest, self.cwd, recursive)
+            except VfsError as exc:
+                self.error(f"cp: {exc}")
+                status = EXIT_ERROR
+        return status
 
     def cmd_exit(self, args):
         """Завершить работу эмулятора."""
