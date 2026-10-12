@@ -64,7 +64,7 @@ def split_options(args):
     """
     options, operands = set(), []
     for arg in args:
-        if arg.startswith(OPTION_PREFIX) and len(arg) > 1:
+        if arg.startswith(OPTION_PREFIX) and arg != OPTION_PREFIX:
             options.update(arg[1:])
         else:
             operands.append(arg)
@@ -217,7 +217,7 @@ class Shell:
                 self.error(f"ls: cannot access {exc}")
                 status = EXIT_ERROR
                 continue
-            if len(paths) > 1 and node.is_dir:
+            if paths[1:] and node.is_dir:
                 self.print(("\n" if index else "") + f"{path}:")
             self.print_listing(path, node, options)
         return status
@@ -241,7 +241,7 @@ class Shell:
 
         Без аргумента переходит в корневой каталог.
         """
-        if len(args) > 1:
+        if args[1:]:
             self.error("cd: too many arguments")
             return EXIT_ERROR
         target = args[0] if args else ROOT_PATH
@@ -289,7 +289,7 @@ class Shell:
 
         Формат задаётся как в strftime, например date +%Y-%m-%d.
         """
-        if len(args) > 1:
+        if args[1:]:
             self.error(f"date: extra operand '{args[1]}'")
             return EXIT_ERROR
         date_format = DATE_FORMAT
@@ -321,13 +321,13 @@ class Shell:
         if not paths:
             self.error("cp: missing file operand")
             return EXIT_ERROR
-        if len(paths) == 1:
+        if not paths[1:]:
             self.error(
                 f"cp: missing destination file operand after '{paths[0]}'"
             )
             return EXIT_ERROR
         *sources, dest = paths
-        if len(sources) > 1 and not self.is_dir(dest):
+        if sources[1:] and not self.is_dir(dest):
             self.error(f"cp: target '{dest}' is not a directory")
             return EXIT_ERROR
         recursive = bool(options & set("rR"))
@@ -370,7 +370,7 @@ class Shell:
 
     def cmd_vfs_tree(self, args):
         """Служебная: вывести дерево VFS начиная с пути (по умолчанию .)."""
-        if len(args) > 1:
+        if args[1:]:
             self.error("vfs-tree: too many arguments")
             return EXIT_ERROR
         try:
