@@ -102,11 +102,11 @@ script error: scripts/startup_error.txt:4: exit status 127
 | Функция / команда | Описание |
 |---|---|
 | приглашение | `user@host:/cwd$` — имя пользователя и хоста ОС, текущий каталог VFS |
-| парсер | делит строку на команду и аргументы по пробелам; всё после `#` — комментарий |
+| парсер | делит строку на команду и аргументы по пробелам; слово, начинающееся с `#`, и всё после него — комментарий (`#` внутри слова сохраняется) |
 | `ls [-a] [-l] [путь...]` | содержимое каталогов (по умолчанию — текущего); `-a` — со скрытыми файлами, `-l` — тип (`d`/`-`) и размер в байтах |
 | `cd [путь]` | сменить текущий каталог VFS; без аргумента — переход в корень `/` |
-| `du [-a] [-s] [путь...]` | размер в байтах каждого вложенного каталога и итог; `-a` — и файлов, `-s` — только итог |
-| `cp [-r] ИСТОЧНИК... НАЗНАЧЕНИЕ` | копирование в памяти: файл — под новым именем или в каталог (существующий файл перезаписывается); каталог — только с `-r`/`-R`; несколько источников — в каталог |
+| `du [-a] [-s] [путь...]` | размер в байтах каждого вложенного каталога и итог; `-a` — и файлов, `-s` — только итог (`-a` и `-s` вместе — ошибка) |
+| `cp [-r] ИСТОЧНИК... НАЗНАЧЕНИЕ` | копирование в памяти: файл — под новым именем или в каталог (существующий файл перезаписывается); каталог — только с `-r`/`-R`, с одноимённым каталогом назначения объединяется; несколько источников — в каталог |
 | `date [+ФОРМАТ]` | текущие дата и время ОС; формат как в `strftime`, например `date +%Y-%m-%d` |
 | `exit` | завершает работу эмулятора |
 | `conf-dump` | служебная: выводит параметры эмулятора в формате `ключ=значение` |
@@ -120,9 +120,10 @@ script error: scripts/startup_error.txt:4: exit status 127
 | неизвестная команда | `foo: command not found` | 127 |
 | лишние аргументы | `exit: too many arguments`, `cd: too many arguments` (работа продолжается) | 1 |
 | неизвестная опция | `ls: invalid option -- 'z'` | 2 |
-| путь для `ls`/`du` не существует | `ls: cannot access /nope: No such file or directory` | 1 |
+| путь для `ls`/`du` не существует или файл указан с `/` в конце | `ls: cannot access /nope: No such file or directory`, `du: cannot access /etc/hosts/: Not a directory` | 1 |
+| `du -a -s` | `du: cannot both summarize and show all entries` | 2 |
 | `cd` в несуществующий каталог или файл | `cd: /nope: No such file or directory`, `cd: /etc/hosts: Not a directory` | 1 |
-| ошибки `cp` | `cp: missing file operand`, `cp: -r not specified; omitting directory '/etc'`, `cp: cannot copy a directory, '/home', into itself, '/home/user'`, `cp: target '/etc/hosts' is not a directory` | 1 |
+| ошибки `cp` | `cp: missing file operand`, `cp: -r not specified; omitting directory '/etc'`, `cp: cannot stat '/nope': No such file or directory`, `cp: cannot copy a directory, '/home', into itself, '/home/user/home'`, `cp: '/etc/hosts' and '/etc/hosts' are the same file`, `cp: cannot overwrite non-directory '/tmp/passwd' with directory`, `cp: target '/etc/hosts' is not a directory` | 1 |
 | неверный аргумент `date` | `date: invalid date 'tomorrow'`, `date: extra operand '+%m'` | 1 |
 | путь не существует | `vfs-tree: /nope: No such file or directory` | 1 |
 | файл вместо каталога | `vfs-tree: /etc/hosts/x: Not a directory` | 1 |
@@ -130,7 +131,7 @@ script error: scripts/startup_error.txt:4: exit status 127
 | VFS не найдена / неверна | `vfs: cannot read '...'`, `vfs: invalid JSON in '...'`, `vfs: /a.txt: unknown node type 'link'` | 1 (выход) |
 | неизвестный параметр запуска | `emulator: error: unrecognized arguments: ...` | 2 (выход) |
 
-Пустая строка игнорируется. `Ctrl+D` / `Ctrl+C` завершают работу.
+Пустая строка игнорируется. `Ctrl+D` завершает работу, `Ctrl+C` сбрасывает текущую строку.
 
 ## Сборка и запуск
 
@@ -212,14 +213,13 @@ user@host:/$ vfs-tree /home/user/../../etc
 user@host:/$ vfs-tree /etc/hosts/inner
 vfs-tree: /etc/hosts/inner: Not a directory
 user@host:/$ ls -l /home
-ls: args = ['-l', '/home']
+d      169 user
 user@host:/$ cd /home/user
-cd: args = ['/home/user']
-user@host:/$ foo bar
+user@host:/home/user$ foo bar
 foo: command not found
-user@host:/$ exit 1
+user@host:/home/user$ exit 1
 exit: too many arguments
-user@host:/$ exit
+user@host:/home/user$ exit
 ```
 
 Копирование (этап 5) — все изменения только в памяти:
@@ -233,9 +233,16 @@ user@host:/$ vfs-tree /tmp
 │   ├── photo.png
 │   └── report.txt
 └── hosts.bak
+user@host:/$ cp /etc/passwd /tmp/docs
+user@host:/$ cp -r /home/user/docs /tmp
+user@host:/$ ls /tmp/docs
+passwd  photo.png  report.txt
 user@host:/$ cp /etc /tmp
 cp: -r not specified; omitting directory '/etc'
 ```
+
+Повторное `cp -r` объединяет каталоги, как в UNIX: файл `passwd`,
+добавленный в `/tmp/docs`, сохраняется.
 
 Запуск со стартовым скриптом:
 
