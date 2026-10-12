@@ -17,6 +17,8 @@ TYPE_FILE = "file"
 ENCODING_TEXT = "utf-8"
 ENCODING_BASE64 = "base64"
 RESERVED_NAMES = (".", "..")
+NO_SUCH_FILE = "No such file or directory"
+NOT_A_DIR = "Not a directory"
 
 TREE_BRANCH = "├── "
 TREE_LAST = "└── "
@@ -26,6 +28,16 @@ TREE_SPACE = "    "
 
 class VfsError(Exception):
     """Ошибка загрузки VFS или обращения к её узлам."""
+
+
+class VfsPathError(VfsError):
+    """Путь VFS не существует или проходит через файл."""
+
+    def __init__(self, path, reason):
+        """Запомнить путь path и причину ошибки reason."""
+        super().__init__(f"{path}: {reason}")
+        self.path = path
+        self.reason = reason
 
 
 class VfsFile:
@@ -78,6 +90,35 @@ def clone(node, name):
         for child_name, child in node.children.items()
     }
     return VfsDir(name, children)
+
+
+def is_inside(path, ancestor):
+    """Проверить, что path совпадает с ancestor или лежит внутри него."""
+    return (path + SEPARATOR).startswith(
+        ancestor.rstrip(SEPARATOR) + SEPARATOR
+    )
+
+
+def place(parent, name, node, target):
+    """Положить узел node в каталог parent под именем name.
+
+    Файл перезаписывает существующий файл, каталог объединяется
+    с существующим каталогом, как в cp -r. target — путь копии.
+    """
+    existing = parent.children.get(name)
+    if existing is None or not (existing.is_dir or node.is_dir):
+        parent.children[name] = node
+        return
+    if not existing.is_dir:
+        raise VfsError(
+            f"cannot overwrite non-directory '{target}' with directory"
+        )
+    if not node.is_dir:
+        raise VfsError(
+            f"cannot overwrite directory '{target}' with non-directory"
+        )
+    for child_name, child in node.children.items():
+        place(existing, child_name, child, join_path(target, child_name))
 
 
 def normalize(path, cwd=ROOT_PATH):
@@ -225,16 +266,19 @@ class VirtualFS:
         """Найти узел по пути относительно cwd.
 
         Возвращает кортеж (абсолютный путь, узел).
-        Бросает VfsError, если путь не существует.
+        Бросает VfsPathError, если путь не существует или
+        заканчивается на / и указывает на файл.
         """
         abs_path = normalize(path, cwd)
         node = self.root
         for part in filter(None, abs_path.split(SEPARATOR)):
             if not node.is_dir:
-                raise VfsError(f"{path}: Not a directory")
+                raise VfsPathError(path, NOT_A_DIR)
             if part not in node.children:
-                raise VfsError(f"{path}: No such file or directory")
+                raise VfsPathError(path, NO_SUCH_FILE)
             node = node.children[part]
+        if path.endswith(SEPARATOR) and not node.is_dir:
+            raise VfsPathError(path, NOT_A_DIR)
         return abs_path, node
 
     def copy_target(self, dst, cwd, src_name):
@@ -250,6 +294,8 @@ class VirtualFS:
             node = None
         if node is not None and node.is_dir:
             return node, dst_path, src_name
+        if dst.endswith(SEPARATOR):
+            raise VfsError(f"cannot create '{dst}': {NOT_A_DIR}")
         parent_path, name = split_path(dst_path)
         try:
             _, parent = self.lookup(parent_path)
@@ -257,32 +303,30 @@ class VirtualFS:
             parent = None
         if parent is None or not parent.is_dir:
             raise VfsError(
-                f"cannot create '{dst}': No such file or directory"
+                f"cannot create '{dst}': {NO_SUCH_FILE}"
             )
         return parent, parent_path, name
 
     def copy(self, src, dst, cwd=ROOT_PATH, recursive=False):
         """Скопировать узел src в dst в памяти; вернуть путь копии.
 
-        Каталог копируется только при recursive. Исходный JSON-файл
-        VFS не изменяется. Ошибки сообщаются через VfsError.
+        Каталог копируется только при recursive и объединяется
+        с одноимённым каталогом назначения. Исходный JSON-файл VFS
+        не изменяется. Ошибки сообщаются через VfsError.
         """
-        src_path, node = self.lookup(src, cwd)
+        try:
+            src_path, node = self.lookup(src, cwd)
+        except VfsPathError as exc:
+            raise VfsError(f"cannot stat '{src}': {exc.reason}") from exc
         if node.is_dir and not recursive:
             raise VfsError(f"-r not specified; omitting directory '{src}'")
         parent, parent_path, name = self.copy_target(dst, cwd, node.name)
         target = join_path(parent_path, name)
-        inside = (target + SEPARATOR).startswith(
-            src_path.rstrip(SEPARATOR) + SEPARATOR
-        )
-        if node.is_dir and inside:
+        if parent.children.get(name) is node:
+            raise VfsError(f"'{src}' and '{target}' are the same file")
+        if node.is_dir and is_inside(target, src_path):
             raise VfsError(
-                f"cannot copy a directory, '{src}', into itself, '{dst}'"
+                f"cannot copy a directory, '{src}', into itself, '{target}'"
             )
-        existing = parent.children.get(name)
-        if existing is node:
-            raise VfsError(f"'{src}' and '{dst}' are the same file")
-        if existing is not None and existing.is_dir != node.is_dir:
-            raise VfsError(f"cannot overwrite '{target}': type mismatch")
-        parent.children[name] = clone(node, name)
+        place(parent, name, clone(node, name), target)
         return target
