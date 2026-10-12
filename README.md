@@ -99,39 +99,77 @@ script error: scripts/startup_error.txt:4: exit status 127
 
 ## Функции
 
-| Функция / команда | Описание |
-|---|---|
-| приглашение | `user@host:/cwd$` — имя пользователя и хоста ОС, текущий каталог VFS |
-| парсер | делит строку на команду и аргументы по пробелам; слово, начинающееся с `#`, и всё после него — комментарий (`#` внутри слова сохраняется) |
-| `ls [-a] [-l] [путь...]` | содержимое каталогов (по умолчанию — текущего); `-a` — со скрытыми файлами, `-l` — тип (`d`/`-`) и размер в байтах |
-| `cd [путь]` | сменить текущий каталог VFS; без аргумента — переход в корень `/` |
-| `du [-a] [-s] [путь...]` | размер в байтах каждого вложенного каталога и итог; `-a` — и файлов, `-s` — только итог (`-a` и `-s` вместе — ошибка) |
-| `cp [-r] ИСТОЧНИК... НАЗНАЧЕНИЕ` | копирование в памяти: файл — под новым именем или в каталог (существующий файл перезаписывается); каталог — только с `-r`/`-R`, с одноимённым каталогом назначения объединяется; несколько источников — в каталог |
-| `date [+ФОРМАТ]` | текущие дата и время ОС; формат как в `strftime`, например `date +%Y-%m-%d` |
-| `exit` | завершает работу эмулятора |
-| `conf-dump` | служебная: выводит параметры эмулятора в формате `ключ=значение` |
-| `vfs-info` | служебная: источник VFS, число каталогов и файлов, общий размер |
-| `vfs-tree [путь]` | служебная: дерево VFS от указанного пути (по умолчанию — текущий каталог); поддерживаются абсолютные и относительные пути, `.` и `..` |
+Приглашение — `user@host:/cwd$`: имя пользователя и хоста ОС,
+текущий каталог VFS.
+
+Парсер делит строку на команду и аргументы по пробелам. Слово,
+начинающееся с `#`, и всё после него — комментарий (`#` внутри слова
+сохраняется).
+
+Команды:
+
+- `ls [-a] [-l] [путь...]` — содержимое каталогов (по умолчанию —
+  текущего); `-a` — со скрытыми файлами, `-l` — тип (`d`/`-`) и размер
+  в байтах.
+- `cd [путь]` — сменить текущий каталог VFS; без аргумента — переход
+  в корень `/`.
+- `du [-a] [-s] [путь...]` — размер в байтах каждого вложенного
+  каталога и итог; `-a` — и файлов, `-s` — только итог (`-a` и `-s`
+  вместе — ошибка).
+- `cp [-r] ИСТОЧНИК... НАЗНАЧЕНИЕ` — копирование в памяти:
+  - файл — под новым именем или в каталог, существующий файл
+    перезаписывается;
+  - каталог — только с `-r`/`-R`, с одноимённым каталогом назначения
+    объединяется;
+  - несколько источников — в каталог.
+- `date [+ФОРМАТ]` — текущие дата и время ОС; формат как в `strftime`,
+  например `date +%Y-%m-%d`.
+- `exit` — завершает работу эмулятора.
+
+Служебные команды:
+
+- `conf-dump` — параметры эмулятора в формате `ключ=значение`.
+- `vfs-info` — источник VFS, число каталогов и файлов, общий размер.
+- `vfs-tree [путь]` — дерево VFS от указанного пути (по умолчанию —
+  текущий каталог); поддерживаются абсолютные и относительные пути,
+  `.` и `..`.
 
 ### Обработка ошибок
 
-| Ситуация | Сообщение | Код |
-|---|---|---|
-| неизвестная команда | `foo: command not found` | 127 |
-| лишние аргументы | `exit: too many arguments`, `cd: too many arguments` (работа продолжается) | 1 |
-| неизвестная опция | `ls: invalid option -- 'z'` | 2 |
-| путь для `ls`/`du` не существует или файл указан с `/` в конце | `ls: cannot access /nope: No such file or directory`, `du: cannot access /etc/hosts/: Not a directory` | 1 |
-| `du -a -s` | `du: cannot both summarize and show all entries` | 2 |
-| `cd` в несуществующий каталог или файл | `cd: /nope: No such file or directory`, `cd: /etc/hosts: Not a directory` | 1 |
-| ошибки `cp` | `cp: missing file operand`, `cp: -r not specified; omitting directory '/etc'`, `cp: cannot stat '/nope': No such file or directory`, `cp: cannot copy a directory, '/home', into itself, '/home/user/home'`, `cp: '/etc/hosts' and '/etc/hosts' are the same file`, `cp: cannot overwrite non-directory '/tmp/passwd' with directory`, `cp: target '/etc/hosts' is not a directory` | 1 |
-| неверный аргумент `date` | `date: invalid date 'tomorrow'`, `date: extra operand '+%m'` | 1 |
-| путь не существует | `vfs-tree: /nope: No such file or directory` | 1 |
-| файл вместо каталога | `vfs-tree: /etc/hosts/x: Not a directory` | 1 |
-| стартовый скрипт не найден | `script: cannot read '...': No such file or directory` | 1 (выход) |
-| VFS не найдена / неверна | `vfs: cannot read '...'`, `vfs: invalid JSON in '...'`, `vfs: /a.txt: unknown node type 'link'` | 1 (выход) |
-| неизвестный параметр запуска | `emulator: error: unrecognized arguments: ...` | 2 (выход) |
+В скобках — код возврата команды.
 
-Пустая строка игнорируется. `Ctrl+D` завершает работу, `Ctrl+C` сбрасывает текущую строку.
+- Неизвестная команда (127): `foo: command not found`.
+- Лишние аргументы (1), работа продолжается:
+  `exit: too many arguments`, `cd: too many arguments`.
+- Неизвестная опция (2): `ls: invalid option -- 'z'`.
+- Путь для `ls`/`du` не существует или файл указан с `/` в конце (1):
+  - `ls: cannot access /nope: No such file or directory`
+  - `du: cannot access /etc/hosts/: Not a directory`
+- `du -a -s` (2): `du: cannot both summarize and show all entries`.
+- `cd` в несуществующий каталог или файл (1):
+  - `cd: /nope: No such file or directory`
+  - `cd: /etc/hosts: Not a directory`
+- Ошибки `cp` (1):
+  - `cp: missing file operand`
+  - `cp: -r not specified; omitting directory '/etc'`
+  - `cp: cannot stat '/nope': No such file or directory`
+  - `cp: cannot copy a directory, '/home', into itself, '/home/user/home'`
+  - `cp: '/etc/hosts' and '/etc/hosts' are the same file`
+  - `cp: cannot overwrite non-directory '/tmp/passwd' with directory`
+  - `cp: target '/etc/hosts' is not a directory`
+- Неверный аргумент `date` (1):
+  `date: invalid date 'tomorrow'`, `date: extra operand '+%m'`.
+- `vfs-tree` (1): `vfs-tree: /nope: No such file or directory`,
+  `vfs-tree: /etc/hosts/x: Not a directory`.
+- Стартовый скрипт не найден (выход с кодом 1):
+  `script: cannot read '...': No such file or directory`.
+- VFS не найдена или неверна (выход с кодом 1): `vfs: cannot read '...'`,
+  `vfs: invalid JSON in '...'`, `vfs: /a.txt: unknown node type 'link'`.
+- Неизвестный параметр запуска (выход с кодом 2):
+  `emulator: error: unrecognized arguments: ...`.
+
+Пустая строка игнорируется. `Ctrl+D` завершает работу, `Ctrl+C`
+сбрасывает текущую строку.
 
 ## Сборка и запуск
 
