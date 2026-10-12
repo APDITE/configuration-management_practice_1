@@ -167,6 +167,20 @@ class CopyTest(unittest.TestCase):
         _, copy = self.vfs.lookup("/tmp/docs/photo.png")
         self.assertEqual(copy.data, original.children["photo.png"].data)
 
+    def test_copy_dir_merges(self):
+        """Каталог объединяется с одноимённым, ничего не теряется."""
+        self.vfs.copy("/home/user/docs", "/tmp", recursive=True)
+        self.vfs.copy("/etc/hosts", "/tmp/docs")
+        self.vfs.copy("/home/user/docs", "/tmp", recursive=True)
+        _, node = self.vfs.lookup("/tmp/docs")
+        self.assertEqual(sorted(node.children),
+                         ["hosts", "photo.png", "report.txt"])
+
+    def test_lookup_file_with_slash(self):
+        """Путь к файлу с / в конце — ошибка Not a directory."""
+        with self.assertRaisesRegex(VfsError, "Not a directory"):
+            self.vfs.lookup("/etc/hosts/")
+
     def test_errors(self):
         """Ошибки копирования."""
         cases = [
@@ -176,7 +190,9 @@ class CopyTest(unittest.TestCase):
             ("/nope", "/tmp", False, "No such file"),
             ("/etc/hosts", "/no/dir/x", False, "cannot create"),
             ("/etc/hosts", "/etc/hosts", False, "same file"),
-            ("/var", "/etc/hosts", True, "type mismatch"),
+            ("/var", "/etc/hosts", True, "cannot overwrite non-directory"),
+            ("/etc/hosts", "/etc/hosts/", False, "Not a directory"),
+            ("/tmp", "/tmp", True, "into itself, '/tmp/tmp'"),
         ]
         for src, dst, recursive, message in cases:
             with self.subTest(src=src, dst=dst):

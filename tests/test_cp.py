@@ -55,6 +55,15 @@ class CpTest(unittest.TestCase):
         self.shell.execute("cp /etc/hosts /etc/passwd /var/log /tmp -r")
         self.assertEqual(ls(self.shell, "/tmp"), ["hosts", "log", "passwd"])
 
+    def test_directory_merge(self):
+        """Повторное cp -r объединяет каталоги, а не заменяет."""
+        self.shell.execute("cp -r /home/user/docs /tmp")
+        self.shell.execute("cp /etc/passwd /tmp/docs")
+        self.assertEqual(self.shell.execute("cp -r /home/user/docs /tmp"),
+                         EXIT_OK)
+        self.assertEqual(ls(self.shell, "/tmp/docs"),
+                         ["passwd", "photo.png", "report.txt"])
+
     def test_source_file_not_modified(self):
         """Изменения только в памяти: JSON-файл VFS не меняется."""
         with open(DEEP_VFS, "rb") as file:
@@ -77,8 +86,13 @@ class CpErrorTest(unittest.TestCase):
             "cp /etc /tmp": "cp: -r not specified; omitting directory "
                             "'/etc'",
             "cp -r /home /home/user": "cp: cannot copy a directory, "
-                                      "'/home', into itself, '/home/user'",
-            "cp /nope /tmp": "cp: /nope: No such file or directory",
+                                      "'/home', into itself, "
+                                      "'/home/user/home'",
+            "cp /nope /tmp": "cp: cannot stat '/nope': No such file or "
+                             "directory",
+            "cp -r /tmp/ /": "cp: '/tmp/' and '/tmp' are the same file",
+            "cp /etc/hosts /tmp/x/": "cp: cannot create '/tmp/x/': Not a "
+                                     "directory",
             "cp /etc/hosts /no/x": "cp: cannot create '/no/x': No such "
                                    "file or directory",
             "cp /etc/hosts /etc/passwd /etc/hosts": "cp: target "
