@@ -33,11 +33,18 @@ ls /tmp/docs
 ls /home/user/docs
 du -s /
 
+# --- повторное cp -r объединяет каталоги, passwd не теряется ---
+cp -r /home/user/docs /tmp
+ls /tmp/docs
+
 # --- обработка ошибок ---
 cp                             # нет операндов
 cp /etc/hosts                  # нет назначения
 cp /etc /tmp                   # каталог без -r
 cp -r /home /home/user         # копирование каталога в себя
+cp -r /tmp/docs /tmp           # каталог в самого себя
+cp -r /etc /tmp/passwd         # каталог поверх файла
+cp /etc/hosts /tmp/new/        # / в конце несуществующего пути
 cp /no/such/file /tmp          # источник не существует
 cp /etc/hosts /no/such/dir/x   # каталог назначения не существует
 cp /etc/hosts /etc/hosts       # файл в самого себя
