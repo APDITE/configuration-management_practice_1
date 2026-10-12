@@ -141,6 +141,12 @@ class DuTest(unittest.TestCase):
         self.assertEqual(status, EXIT_ERROR)
         self.assertIn("du: cannot access /nope", err)
         self.assertEqual(run(shell, "du -x")[0], EXIT_USAGE)
+        status, _, err = run(shell, "du -as /etc")
+        self.assertEqual(status, EXIT_USAGE)
+        self.assertIn("cannot both summarize and show all entries", err)
+        status, _, err = run(shell, "du /etc/hosts/")
+        self.assertEqual(status, EXIT_ERROR)
+        self.assertIn("/etc/hosts/: Not a directory", err)
 
 
 class DateTest(unittest.TestCase):

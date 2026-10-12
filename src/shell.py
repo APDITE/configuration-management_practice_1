@@ -38,10 +38,15 @@ def make_prompt(cwd):
 def parse(line):
     """Разделить строку ввода на команду и аргументы по пробелам.
 
-    Всё после символа # считается комментарием (как в Python).
+    Слово, начинающееся с #, и всё после него — комментарий
+    (как в Python и sh); # внутри слова сохраняется.
     Для пустой строки возвращает (None, []).
     """
-    parts = line.split(COMMENT, 1)[0].split()
+    parts = []
+    for word in line.split():
+        if word.startswith(COMMENT):
+            break
+        parts.append(word)
     if not parts:
         return None, []
     return parts[0], parts[1:]
@@ -139,13 +144,19 @@ class Shell:
         return handler(args)
 
     def repl(self):
-        """Запустить интерактивный цикл: приглашение, ввод, выполнение."""
+        """Запустить интерактивный цикл: приглашение, ввод, выполнение.
+
+        Ctrl+D завершает работу, Ctrl+C сбрасывает текущую строку.
+        """
         while True:
             try:
                 line = input(self.prompt())
-            except (EOFError, KeyboardInterrupt):
+            except EOFError:
                 self.print()
                 return
+            except KeyboardInterrupt:
+                self.print()
+                continue
             try:
                 self.execute(line)
             except ShellExit:
@@ -253,6 +264,9 @@ class Shell:
         """
         options, paths = split_options(args)
         if not self.check_options("du", options, "as"):
+            return EXIT_USAGE
+        if {"a", "s"} <= options:
+            self.error("du: cannot both summarize and show all entries")
             return EXIT_USAGE
         status = EXIT_OK
         for path in paths or [CURRENT_DIR]:

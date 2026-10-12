@@ -3,6 +3,7 @@
 import getpass
 import io
 import unittest
+from unittest import mock
 
 from shell import EXIT_ERROR, EXIT_NOT_FOUND, Shell, ShellExit
 from shell import make_prompt, parse
@@ -38,6 +39,7 @@ class ParseTest(unittest.TestCase):
         """Всё после # отбрасывается."""
         self.assertEqual(parse("ls a # b c"), ("ls", ["a"]))
         self.assertEqual(parse("# only comment"), (None, []))
+        self.assertEqual(parse("ls file#1 #c"), ("ls", ["file#1"]))
 
 
 class CommandTest(unittest.TestCase):
@@ -65,6 +67,34 @@ class CommandTest(unittest.TestCase):
         shell = make_shell()
         self.assertEqual(shell.execute("exit 1"), EXIT_ERROR)
         self.assertIn("exit: too many arguments", shell.err.getvalue())
+
+
+class ReplTest(unittest.TestCase):
+    """Проверки интерактивного цикла с подменённым вводом."""
+
+    def test_ctrl_c_keeps_running(self):
+        """Ctrl+C сбрасывает строку, работа продолжается до exit."""
+        shell = make_shell()
+        lines = iter([KeyboardInterrupt(), "foo", "exit", "never"])
+
+        def fake_input(_prompt):
+            """Вернуть очередную строку или бросить исключение."""
+            item = next(lines)
+            if isinstance(item, BaseException):
+                raise item
+            return item
+
+        with mock.patch("builtins.input", fake_input):
+            shell.repl()
+        self.assertIn("foo: command not found", shell.err.getvalue())
+        self.assertEqual(next(lines), "never")
+
+    def test_ctrl_d_exits(self):
+        """Ctrl+D (конец ввода) завершает работу."""
+        shell = make_shell()
+        with mock.patch("builtins.input", side_effect=EOFError):
+            shell.repl()
+        self.assertEqual(shell.out.getvalue(), "\n")
 
 
 if __name__ == "__main__":
