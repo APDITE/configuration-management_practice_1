@@ -210,9 +210,9 @@ def render_tree(node, prefix=""):
     """Вернуть строки дерева для дочерних узлов каталога node."""
     lines = []
     names = sorted(node.children)
-    for index, name in enumerate(names):
+    for name in names:
         child = node.children[name]
-        last = index == len(names) - 1
+        last = name == names[-1]
         suffix = SEPARATOR if child.is_dir else ""
         lines.append(prefix + (TREE_LAST if last else TREE_BRANCH)
                      + name + suffix)
